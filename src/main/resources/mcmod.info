@@ -1,0 +1,9 @@
+[
+	{
+		"modid": "cpup-computers",
+		"name": "CoderPuppy's Computer Mod",
+		"version": "$version",
+		"mcversion": "$mcVersion",
+		"authors": ["CoderPuppy"]
+	}
+]

@@ -1,0 +1,68 @@
+buildscript {
+	repositories {
+		mavenCentral()
+		maven {
+			name = 'forge'
+			url = 'http://files.minecraftforge.net/maven'
+		}
+		maven {
+			name = 'sonatype'
+			url = 'https://oss.sonatype.org/content/repositories/snapshots/'
+		}
+	}
+
+	dependencies {
+		classpath 'net.minecraftforge.gradle:ForgeGradle:1.2-SNAPSHOT'
+	}
+}
+
+apply plugin: 'java'
+
+repositories {
+	mavenLocal()
+	mavenCentral()
+	maven {
+		name 'ProfMobius'
+		url 'http://mobiusstrip.eu/maven'
+	}
+	maven {
+		name 'ChickenBones'
+		url 'http://chickenbones.net/maven/'
+	}
+}
+
+apply plugin: 'scala'
+ext { scala = [ version: '2.11.1' ] }
+dependencies.compile "org.scala-lang:scala-compiler:$scala.version"
+dependencies.compile "org.scala-lang:scala-library:$scala.version"
+dependencies.compile "org.scala-lang:scala-reflect:$scala.version"
+
+apply plugin: 'forge'
+ext { forge = [ mcVersion: '1.7.10', version: '10.13.2.1343' ] }
+minecraft {
+	version = "$forge.mcVersion-$forge.version-$forge.mcVersion"
+	runDir = 'eclipse'
+}
+
+apply plugin: 'maven'
+
+archivesBaseName = 'cpup-computers-mc'
+group = 'cpup.mc.computers'
+version = 'dev'
+dependencies {
+	compile 'cpup.lib:cpup-lib:dev'
+	compile 'cpup.mc.lib:cpup-mc:dev'
+	compile 'org.luaj:luaj-jse:3.0.1'
+}
+
+processResources {
+	from(sourceSets.main.resources.srcDirs) {
+		include 'mcmod.info'
+
+		expand version: version, mcVersion: forge.mcVersion
+	}
+
+	from(sourceSets.main.resources.srcDirs) {
+		exclude 'mcmod.info'
+	}
+}
