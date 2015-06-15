@@ -1,12 +1,12 @@
 package cpup.mc.computers.content.network
 
 import com.typesafe.config.Config
+import cpup.lib.inspecting.Context
 import cpup.lib.module.{ModuleID, ModuleLoader}
 import cpup.mc.computers.network.component.{Component, ComponentProviderNode, ComponentBus}
 import cpup.mc.computers.network.{Node, SidedNodeHolder}
 import cpup.mc.computers.{CPupComputers, network => impl}
 import cpup.mc.lib.{ModLifecycleHandler, inspecting}
-import cpup.mc.lib.inspecting.MCContext
 import cpup.mc.lib.inspecting.Registry.IDed
 import cpup.mc.lib.util.Direction
 import cpw.mods.fml.common.event.{FMLInitializationEvent, FMLPreInitializationEvent}
@@ -28,36 +28,36 @@ class Network(logger: Logger, config: Config) extends ModLifecycleHandler {
 		{
 			import inspecting.Registry
 			import inspecting.Registry.Data
-			Registry.register[IDed, Any] { (obj: IDed, ctx: Any) =>
+			Registry.register[IDed] { (obj: IDed, ctx: Context) =>
 				Some(Data.Table(
 					"typ" -> Data.String(obj.typ),
 					"uuid" -> Data.String(obj.uuid.toString)
 				))
 			}
-			Registry.register[SidedNodeHolder, MCContext.Side]((obj: SidedNodeHolder, ctx: MCContext.Side) => {
-				obj.node(ctx.side).map(node => {
+			Registry.register[SidedNodeHolder]((obj: SidedNodeHolder, ctx: Context) => {
+				ctx[Direction]('side).flatMap(obj.node).map(node => {
 					Data.Table(
 						"node" -> node.link
 					)
 				})
 			})
-			Registry.register[SidedNodeHolder, Any]((obj: SidedNodeHolder, ctx: Any) => {
+			Registry.register[SidedNodeHolder]((obj: SidedNodeHolder, ctx: Context) => {
 				if(obj.isInstanceOf[Node]) None else Some(Data.Table(
 				"nodes" -> Data.Table(Direction.valid.flatMap(side => obj.node(side).map(node => (side.toString, node.link))): _*)
 				))
 			})
-			Registry.register[Node, Any]((obj: Node, ctx: Any) => {
+			Registry.register[Node]((obj: Node, ctx: Context) => {
 				Some(Data.Table(
 					"connections" -> Data.List(obj.connections.toSeq.map(node => Data.Link(s"${mod.ref.modID}:node", Data.String(node.uuid.toString))): _*),
 					"network" -> obj.network.link
 				))
 			})
-			Registry.register[ComponentProviderNode, Any] { (obj: ComponentProviderNode, ctx: Any) =>
+			Registry.register[ComponentProviderNode] { (obj: ComponentProviderNode, ctx: Context) =>
 				Some(Data.Table(
 					"components" -> Data.List(obj.components.map(_.link).toSeq: _*)
 				))
 			}
-			Registry.register[impl.Network, Any]((obj: impl.Network, ctx: Any) => {
+			Registry.register[impl.Network]((obj: impl.Network, ctx: Context) => {
 				Some(Data.Table(
 					"nodes" -> Data.List(obj.nodes.map(node => {
 						Data.Link(s"${mod.ref.modID}:node", Data.String(node.uuid.toString))
@@ -65,16 +65,18 @@ class Network(logger: Logger, config: Config) extends ModLifecycleHandler {
 					"buses" -> Data.List(obj.buses.values.map(_.link).toSeq: _*)
 				))
 			})
-			Registry.register[ComponentBus, Any] { (obj: ComponentBus, ctx: Any) =>
+			Registry.register[ComponentBus] { (obj: ComponentBus, ctx: Context) =>
 				Some(Data.Table(
 					"components" -> Data.List(obj.components.toSeq.map(_.link): _*)
 				))
 			}
-//			Registry.register[Component, Any] { (obj: Component, ctx: Any) =>
-//				Some(Data.Table(
-//					"methods" -> Data.Table(obj.methods.map { kv => kv._1 -> Registry.inspect(kv._2, )}: _*)
-//				))
-//			}
+			Registry.register[Component] { (obj: Component, ctx: Context) =>
+				Some(Data.Table(
+					"methods" -> Data.Table(obj.methods.map { kv =>
+						kv._1 -> Registry.inspect(kv._2, new Context().withF(obj))
+					}.toSeq: _*)
+				))
+			}
 		}
 	}
 
