@@ -1,8 +1,8 @@
-package cpup.mc.computers.network
+package cpup.mc.computers.content.network.impl
 
 import scala.reflect.runtime.{universe => ru}
 
-import cpup.mc.computers.network.{Node => NNode}
+import cpup.mc.computers.content.network.impl.{Node => NNode}
 
 trait Connector[B <: Bus] {
 	def nodeA: Node

@@ -1,4 +1,4 @@
-package cpup.mc.computers.network.component;
+package cpup.mc.computers.content.network.impl.component;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

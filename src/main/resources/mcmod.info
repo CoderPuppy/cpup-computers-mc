@@ -1,7 +1,7 @@
 [
 	{
 		"modid": "cpup-computers",
-		"name": "CoderPuppy's Computer Mod",
+		"name": "CPupComputers",
 		"version": "$version",
 		"mcversion": "$mcVersion",
 		"authors": ["CoderPuppy"]

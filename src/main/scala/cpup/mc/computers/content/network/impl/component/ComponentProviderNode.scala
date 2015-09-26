@@ -1,6 +1,6 @@
-package cpup.mc.computers.network.component
+package cpup.mc.computers.content.network.impl.component
 
-import cpup.mc.computers.network.{Network, Node}
+import cpup.mc.computers.content.network.impl.{Network, Node}
 
 trait ComponentProviderNode extends Node {
 	def components: Set[Component]

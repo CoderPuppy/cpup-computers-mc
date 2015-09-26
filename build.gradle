@@ -38,7 +38,7 @@ dependencies.compile "org.scala-lang:scala-library:$scala.version"
 dependencies.compile "org.scala-lang:scala-reflect:$scala.version"
 
 apply plugin: 'forge'
-ext { forge = [ mcVersion: '1.7.10', version: '10.13.2.1343' ] }
+ext { forge = [ mcVersion: '1.7.10', version: '10.13.4.1492' ] }
 minecraft {
 	version = "$forge.mcVersion-$forge.version-$forge.mcVersion"
 	runDir = 'eclipse'

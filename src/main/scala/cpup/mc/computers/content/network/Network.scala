@@ -3,9 +3,9 @@ package cpup.mc.computers.content.network
 import com.typesafe.config.Config
 import cpup.lib.inspecting.Context
 import cpup.lib.module.{ModuleID, ModuleLoader}
-import cpup.mc.computers.network.component.{Component, ComponentProviderNode, ComponentBus}
-import cpup.mc.computers.network.{Node, SidedNodeHolder}
-import cpup.mc.computers.{CPupComputers, network => impl}
+import cpup.mc.computers.content.network.impl.component.{Component, ComponentProviderNode, ComponentBus}
+import cpup.mc.computers.content.network.impl.{Node, SidedNodeHolder}
+import cpup.mc.computers.CPupComputers
 import cpup.mc.lib.{ModLifecycleHandler, inspecting}
 import cpup.mc.lib.inspecting.Registry.IDed
 import cpup.mc.lib.util.Direction
@@ -43,7 +43,13 @@ class Network(logger: Logger, config: Config) extends ModLifecycleHandler {
 			})
 			Registry.register[SidedNodeHolder]((obj: SidedNodeHolder, ctx: Context) => {
 				if(obj.isInstanceOf[Node]) None else Some(Data.Table(
-				"nodes" -> Data.Table(Direction.valid.flatMap(side => obj.node(side).map(node => (side.toString, node.link))): _*)
+					"nodes" -> Data.Table(Direction.valid.filter { side =>
+						!ctx[Direction]('side).contains(side) && ctx[Direction]('side).flatMap(obj.node) != obj.node(side)
+					}.flatMap { side =>
+						obj.node(side).map { node =>
+							(side.toString, node.link)
+						}
+					}: _*)
 				))
 			})
 			Registry.register[Node]((obj: Node, ctx: Context) => {
@@ -67,13 +73,13 @@ class Network(logger: Logger, config: Config) extends ModLifecycleHandler {
 			})
 			Registry.register[ComponentBus] { (obj: ComponentBus, ctx: Context) =>
 				Some(Data.Table(
-					"components" -> Data.List(obj.components.toSeq.map(_.link): _*)
+					"components" -> Data.List(obj.components.values.map(_.link).toSeq: _*)
 				))
 			}
 			Registry.register[Component] { (obj: Component, ctx: Context) =>
 				Some(Data.Table(
 					"methods" -> Data.Table(obj.methods.map { kv =>
-						kv._1 -> Registry.inspect(kv._2, new Context().withF(obj))
+						kv._1 -> Data.String(kv._2.usage)
 					}.toSeq: _*)
 				))
 			}

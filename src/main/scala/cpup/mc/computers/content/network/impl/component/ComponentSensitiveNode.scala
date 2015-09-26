@@ -1,4 +1,4 @@
-package cpup.mc.computers.network.component
+package cpup.mc.computers.content.network.impl.component
 
 import org.luaj.vm2.Varargs
 

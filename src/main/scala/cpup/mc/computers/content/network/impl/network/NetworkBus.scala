@@ -1,12 +1,10 @@
-package cpup.mc.computers.network.network
+package cpup.mc.computers.content.network.impl.network
 
-import scala.collection.mutable
-import scala.reflect.internal.util.WeakHashSet
 import scala.reflect.runtime.{universe => ru}
 
-import cpup.mc.computers.{CPupComputers, network}
-import cpup.mc.computers.network.{Bus, Network, Node}
-import org.luaj.vm2.Varargs
+import cpup.mc.computers.CPupComputers
+import cpup.mc.computers.content.network.impl
+import cpup.mc.computers.content.network.impl.{Bus, Network, Node}
 
 class NetworkBus(val network: Network) extends Bus {
 	override def typ = s"${CPupComputers.ref.modID}:network-bus"
@@ -21,20 +19,21 @@ class NetworkBus(val network: Network) extends Bus {
 		_send(from, from, data: _*)
 	}
 
-	override def connector = new NetworkBus.Connector
+	override def connector(host: Node.Host) = new NetworkBus.Connector(host)
 }
 
 object NetworkBus {
 	implicit val create = (net: Network) => new NetworkBus(net)
-	implicit val connector = () => new Connector
 
-	class Connector extends network.Connector[NetworkBus] {
+	class Connector(val host: Node.Host) extends impl.Connector[NetworkBus] {
 		lazy val busType = ru.typeTag[NetworkBus]
 
-		protected[network] val _connector = this
+		protected[network] final val _connector = this
 		protected[network] def createNode = {
-			new Node with network.Connector.Node[NetworkBus] with NetworkSensitiveMode {
-				def connector = _connector
+			val _host = host
+			new Node with impl.Connector.Node[NetworkBus] with NetworkSensitiveMode {
+				override def host = _host
+				override def connector = _connector
 				override def onMessage(_from: Node, from: Node, data: String*) {
 					if(_from == other(this)) return
 					for(net <- Option(other(this).network)) net.bus[NetworkBus]._send(this, from, data: _*)

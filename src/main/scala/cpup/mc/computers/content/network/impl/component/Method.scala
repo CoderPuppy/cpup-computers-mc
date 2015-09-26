@@ -1,4 +1,4 @@
-package cpup.mc.computers.network.component
+package cpup.mc.computers.content.network.impl.component
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.{universe => ru}
@@ -36,7 +36,6 @@ object Method {
 					.mkString(", ")
 			}.getOrElse("")
 			val _usage = s"($params) - ${anno("usage").asInstanceOf[String]}"
-			println(_usage)
 			new Method {
 				override val usage = _usage
 

@@ -4,8 +4,8 @@ import java.util
 
 import com.typesafe.config.Config
 import cpup.lib.module.ModuleID
-import cpup.mc.computers.network.NodeHolder
-import cpup.mc.computers.network.component.ComponentProviderNode
+import cpup.mc.computers.content.network.impl.NodeHolder
+import cpup.mc.computers.content.network.impl.component.ComponentProviderNode
 import cpup.mc.lib.ModLifecycleHandler
 import cpup.mc.lib.util.waila.WailaDataProvider
 import cpw.mods.fml.common.event.{FMLInitializationEvent, FMLInterModComms}

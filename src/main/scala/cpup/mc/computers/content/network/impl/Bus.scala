@@ -1,11 +1,11 @@
-package cpup.mc.computers.network
+package cpup.mc.computers.content.network.impl
 
 import cpup.mc.lib.inspecting.Registry.IDed
 
 trait Bus extends IDed {
 	def network: Network
 
-	def connector: Connector[_ <: Bus]
+	def connector(host: Node.Host): Connector[_ <: Bus]
 
 	def onJoin(node: Node) {}
 	def onLeave(node: Node) {}

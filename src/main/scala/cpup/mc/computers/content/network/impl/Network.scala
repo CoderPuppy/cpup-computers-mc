@@ -1,4 +1,4 @@
-package cpup.mc.computers.network
+package cpup.mc.computers.content.network.impl
 
 import scala.collection.mutable
 import scala.reflect.runtime.{universe => ru}
@@ -12,20 +12,20 @@ class Network(__nodes: Node*) extends IDed {
 	override def typ = s"${CPupComputers.ref.modID}:network"
 //	println("creating network", uuid)
 
-	protected[network] val _nodes = mutable.Set[Node]()
+	protected[impl] val _nodes = mutable.Set[Node]()
 	def nodes = _nodes.toSet
 
-	protected[network] val _buses = mutable.Map[ru.TypeTag[_ <: Bus], Bus]()
+	protected[impl] val _buses = mutable.Map[ru.TypeTag[_ <: Bus], Bus]()
 	def buses = _buses.toMap
 
 	def bus[T <: Bus](implicit tt: ru.TypeTag[T], create: (Network) => T) = _buses.getOrElseUpdate(tt, create(this)).asInstanceOf[T]
 
-	protected[network] val _connectors = mutable.Map[Network, mutable.MultiMap[ru.TypeTag[_ <: Bus], Connector[_ <: Bus]]]()
+	protected[impl] val _connectors = mutable.Map[Network, mutable.MultiMap[ru.TypeTag[_ <: Bus], Connector[_ <: Bus]]]()
 	def connectors = _connectors.toMap.map(kv => (kv._1, kv._2.toMap))
 
 	__nodes.foreach(_take)
 
-	protected[network] def _take(node: Node) {
+	protected[impl] def _take(node: Node) {
 		if(_nodes.contains(node)) {
 			if(node._network != this) throw new RuntimeException("bad")
 			return
@@ -65,15 +65,15 @@ class Network(__nodes: Node*) extends IDed {
 		}
 	}
 
-	protected[network] def _connect(a: Node, b: Node) {
+	protected[impl] def _connect(a: Node, b: Node) {
 //		println(s"connecting ${a.uuid} and ${b.uuid}")
 		if(a.network != this && b.network != this) throw new RuntimeException("neither node is in this network")
 		if(a.network != b.network) combine(if(a.network == this) b.network else a.network)
 	}
 
-	protected[network] val _splitNodes = mutable.Set.empty[Node]
+	protected[impl] val _splitNodes = mutable.Set.empty[Node]
 
-	protected[network] def _disconnect(a: Node, b: Node) {
+	protected[impl] def _disconnect(a: Node, b: Node) {
 //		println(s"trying to split ${a.uuid} and ${b.uuid}")
 		if(_splitNodes.isEmpty)
 			TickUtil.register(TickEvent.Type.SERVER, TickEvent.Phase.END, Side.SERVER, () => {
@@ -85,7 +85,7 @@ class Network(__nodes: Node*) extends IDed {
 		_splitNodes += a
 	}
 
-	protected[network] def _remove(node: Node) {
+	protected[impl] def _remove(node: Node) {
 //		println(s"removing ${node.uuid} from $uuid")
 		_nodes -= node
 		node._network = null
