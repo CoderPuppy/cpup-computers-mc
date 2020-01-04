@@ -7,8 +7,7 @@ trait Bus extends IDed {
 
 	def connector(host: Node.Host): Connector[_ <: Bus]
 
-	def onJoin(node: Node) {}
-	def onLeave(node: Node) {}
+	def onNodeChangeNet(node: Node, chg: Network.Change) {}
 	def onConnect(connector: Connector[_ <: Bus]) {}
 	def onDisconnect(connector: Connector[_ <: Bus]) {}
 	def onConnect(network: Network) {}

@@ -7,18 +7,21 @@ import scala.reflect.runtime.{universe => ru}
 
 import cpup.mc.computers.content.network.impl.component.{Component, ComponentSensitiveNode}
 import cpup.mc.computers.content.network.impl.network.NetworkSensitiveMode
-import cpup.mc.computers.content.network.impl.{Node, NodeTE}
+import cpup.mc.computers.content.network.impl.{Network, Node, NodeTE}
 import cpup.mc.computers.content.{BaseBlockContainer, BaseGUI, BaseTE}
 import cpup.mc.lib.client.imgui
 import cpup.mc.lib.client.imgui.{IMGUI, Label, Widget}
 import cpup.mc.lib.inspecting.Request
-import cpup.mc.lib.util.{Side, NBTUtil}
+import cpup.mc.lib.util.{TickUtil, Side, NBTUtil}
+import cpw.mods.fml.common.gameevent.TickEvent
 import net.minecraft.block.Block
 import net.minecraft.block.material.Material
 import net.minecraft.client.gui.{GuiButton, GuiScreen}
 import net.minecraft.client.renderer.Tessellator
 import net.minecraft.entity.player.EntityPlayer
 import net.minecraft.nbt.NBTTagCompound
+import net.minecraft.network.{NetworkManager, Packet}
+import net.minecraft.network.play.server.S35PacketUpdateTileEntity
 import net.minecraft.world.World
 import org.luaj.vm2.Varargs
 import org.lwjgl.input.{Keyboard => OKeyboard, Mouse}
@@ -49,12 +52,14 @@ object DebugConsole extends Block(Material.iron) with BaseBlockContainer {
 			}
 		}
 
-		node.connect(luaGPU.node)
-		node.connect(luaScreen.node)
-		node.connect(keyboard.node)
-		node.connect(signalO.node)
-		node.connect(messageO.node)
-		luaGPU.bind(luaScreen, 0, 0, 80, 50)
+		node.connection(luaGPU.node, true)
+		node.connection(luaScreen.node, true)
+		node.connection(keyboard.node, true)
+		node.connection(signalO.node, true)
+		node.connection(messageO.node, true)
+		TickUtil.register(TickUtil.fromSide(Side.effective), TickEvent.Phase.END, Side.effective, { () =>
+			luaGPU.bind(luaScreen, 0, 0, 80, 50)
+		})
 
 		override def ctx = NodeTE.ctx(this)
 		override def get[T](id: Symbol)(implicit tt: ru.TypeTag[T]) = None
@@ -66,6 +71,17 @@ object DebugConsole extends Block(Material.iron) with BaseBlockContainer {
 			keyboard.writeToNBT(NBTUtil.compound(nbt, "keyboard"))
 			signalO.writeToNBT(NBTUtil.compound(nbt, "signal-output"))
 			messageO.writeToNBT(NBTUtil.compound(nbt, "message-output"))
+		}
+
+		override def getDescriptionPacket = {
+			val nbt = new NBTTagCompound
+			writeToNBT(nbt)
+			new S35PacketUpdateTileEntity(xCoord, yCoord, zCoord, worldObj.provider.dimensionId, nbt)
+		}
+
+		override def onDataPacket(net: NetworkManager, pkt: S35PacketUpdateTileEntity) {
+			super.onDataPacket(net, pkt)
+			readFromNBT(pkt.func_148857_g)
 		}
 
 		override def readFromNBT(nbt: NBTTagCompound): Unit = super.readFromNBT(nbt)
@@ -102,9 +118,11 @@ object DebugConsole extends Block(Material.iron) with BaseBlockContainer {
 		var cursorX = 0
 		var cursorY = 0
 
-		node.connect(gpu.node)
-		node.connect(screen.node)
-		gpu.bind(screen, 0, 0, width, height)
+		node.connection(gpu.node, true)
+		node.connection(screen.node, true)
+		TickUtil.register(TickUtil.fromSide(Side.effective), TickEvent.Phase.END, Side.effective, { () =>
+			gpu.bind(screen, 0, 0, width, height)
+		})
 
 		def write(text: String) {
 			val lines = (text + "s").split("\n")

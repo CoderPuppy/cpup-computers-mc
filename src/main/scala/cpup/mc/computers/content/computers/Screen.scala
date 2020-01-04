@@ -2,6 +2,7 @@ package cpup.mc.computers.content.computers
 
 import java.io.{DataInputStream, DataOutputStream}
 import java.nio.charset.Charset
+import java.util.UUID
 
 import cpup.mc.computers.CPupComputers
 import cpup.mc.computers.content.network.{NodeMessage, impl}
@@ -23,6 +24,13 @@ class Screen(_host: Node.Host, var maxWidth: Int, var maxHeight: Int) extends Co
 	val selfScreen = this
 
 	val node = new Screen.NodeI(_host, this)
+
+	CPupComputers.logger.info("screen created: {} {} {}", Integer.valueOf(this.hashCode()), uuid, node.uuid, new Exception())
+
+	override def changeUUID(newUUID: UUID) {
+		CPupComputers.logger.info("screen {} {} changing from {} to {}", Integer.valueOf(hashCode), node.uuid, uuid, newUUID)
+		super.changeUUID(newUUID)
+	}
 
 	protected var _curWidth  = 0
 	protected var _curHeight = 0
@@ -96,7 +104,7 @@ class Screen(_host: Node.Host, var maxWidth: Int, var maxHeight: Int) extends Co
 		if(Side.effective.isServer) {
 			val colors = Unpooled.buffer(width * height * 2)
 			val data = Array.ofDim[Char](width * height)
-			Buffer.copy((curWidth, curHeight, colors, data), x, y, width, height, (width, height, colors, data), 0, 0)
+			Buffer.copy((curWidth, curHeight, this.colors, this.data), x, y, width, height, (width, height, colors, data), 0, 0)
 			node.msgNetwork.get.send(node.host.ctx, new Screen.UpdateMessage(this, x, y, width, height, colors, data))
 		}
 	}
@@ -105,6 +113,7 @@ class Screen(_host: Node.Host, var maxWidth: Int, var maxHeight: Int) extends Co
 
 	override def render(width: Int, height: Int, in: Boolean, state: State, prevState: State) {
 		// TODO: cache stuff
+		(() => { () })()
 		for(_x <- 0 until curWidth; _y <- 0 until curHeight) {
 			val (x_, y_) = charPos(_x, _y)
 
@@ -130,6 +139,11 @@ class Screen(_host: Node.Host, var maxWidth: Int, var maxHeight: Int) extends Co
 object Screen {
 	trait Node extends impl.Node {
 		def screen: Screen
+
+		override def changeUUID(newUUID: UUID) {
+			CPupComputers.logger.info("screen {} {} node changing from {} to {}", Integer.valueOf(screen.hashCode), screen.uuid, uuid, newUUID)
+			super.changeUUID(newUUID)
+		}
 	}
 
 	class NodeI(override val host: impl.Node.Host, override val screen: Screen) extends impl.Node with Node with ComponentProviderNode {

@@ -27,7 +27,7 @@ object NodeTE {
 				case _ => None
 			}
 			_node <- _te.node(dir.opposite)
-		} _node.connect(node)
+		} _node.connection(node, true)
 		loading.remove(key)
 	}
 

@@ -7,8 +7,9 @@ import cpup.mc.computers.CPupComputers
 import cpup.mc.lib.inspecting.Registry.IDed
 import cpup.mc.lib.util.{Side, TickUtil}
 import cpw.mods.fml.common.gameevent.TickEvent
+import net.minecraft.client.Minecraft
 
-class Network(__nodes: Node*) extends IDed {
+class Network extends IDed {
 	override def typ = s"${CPupComputers.ref.modID}:network"
 //	println("creating network", uuid)
 
@@ -22,116 +23,6 @@ class Network(__nodes: Node*) extends IDed {
 
 	protected[impl] val _connectors = mutable.Map[Network, mutable.MultiMap[ru.TypeTag[_ <: Bus], Connector[_ <: Bus]]]()
 	def connectors = _connectors.toMap.map(kv => (kv._1, kv._2.toMap))
-
-	__nodes.foreach(_take)
-
-	protected[impl] def _take(node: Node) {
-		if(_nodes.contains(node)) {
-			if(node._network != this) throw new RuntimeException("bad")
-			return
-		}
-		val oldNetwork = node._network
-//		if(oldNetwork != null)
-//			println(s"moving ${node.uuid} to $uuid from ${oldNetwork.uuid}")
-//		else
-//			println(s"adding ${node.uuid} to $uuid")
-		if(oldNetwork != null) oldNetwork._remove(node)
-		_nodes += node
-		node._network = this
-		node.onJoin(this)
-		for(_node <- _nodes if node != _node) {
-			node.onConnect(_node)
-			_node.onConnect(node)
-		}
-		_buses.values.foreach(_.onJoin(node))
-		node match {
-			case n: Connector.Node[_] => {
-				val connector = n.connector
-				val other = connector.other(n)
-				val sConnectors = _connectors
-					.getOrElseUpdate(connector.other(node).network, {
-					new mutable.HashMap[ru.TypeTag[_ <: Bus], mutable.Set[Connector[_ <: Bus]]] with mutable.MultiMap[ru.TypeTag[_ <: Bus], Connector[_ <: Bus]]
-				})
-					.addBinding(connector.busType, connector)
-				nodes.foreach(_.onConnect(connector))
-				_buses.values.foreach(_.onConnect(connector))
-				if(sConnectors(connector.busType).size == 1) {
-					nodes.foreach(_.onConnect(other.network))
-					_buses.values.foreach(_.onConnect(other.network))
-				}
-			}
-
-			case _ =>
-		}
-	}
-
-	protected[impl] def _connect(a: Node, b: Node) {
-//		println(s"connecting ${a.uuid} and ${b.uuid}")
-		if(a.network != this && b.network != this) throw new RuntimeException("neither node is in this network")
-		if(a.network != b.network) combine(if(a.network == this) b.network else a.network)
-	}
-
-	protected[impl] val _splitNodes = mutable.Set.empty[Node]
-
-	protected[impl] def _disconnect(a: Node, b: Node) {
-//		println(s"trying to split ${a.uuid} and ${b.uuid}")
-		if(_splitNodes.isEmpty)
-			TickUtil.register(TickEvent.Type.SERVER, TickEvent.Phase.END, Side.SERVER, () => {
-				split(Network.findNetworks(_splitNodes.toSeq: _*): _*)
-				_splitNodes.clear
-				()
-			})
-		_splitNodes += b
-		_splitNodes += a
-	}
-
-	protected[impl] def _remove(node: Node) {
-//		println(s"removing ${node.uuid} from $uuid")
-		_nodes -= node
-		node._network = null
-		for(_node <- _nodes) {
-			node.onDisconnect(_node)
-			_node.onDisconnect(node)
-		}
-		node.onLeave(this)
-		node match {
-			case n: Connector.Node[_] => {
-				val connector = n.connector
-				val other = connector.other(n)
-				val sConnectors = _connectors
-					.getOrElseUpdate(connector.other(n).network, {
-						new mutable.HashMap[ru.TypeTag[_ <: Bus], mutable.Set[Connector[_ <: Bus]]] with mutable.MultiMap[ru.TypeTag[_ <: Bus], Connector[_ <: Bus]]
-					})
-					.removeBinding(connector.busType, connector)
-				nodes.foreach(_.onDisconnect(connector))
-				_buses.values.foreach(_.onDisconnect(connector))
-				if(sConnectors(connector.busType).isEmpty) {
-					nodes.foreach(_.onDisconnect(other.network))
-					_buses.values.foreach(_.onDisconnect(other.network))
-				}
-			}
-
-			case _ =>
-		}
-		_buses.values.foreach(_.onLeave(node))
-	}
-
-	def combine(other: Network) {
-//		println(s"combining $uuid and ${other.uuid}")
-		for(node <- other._nodes.toList) {
-			_take(node)
-		}
-	}
-
-	// NOTE: this is very similar to OpenComputer's Network#handleSplit
-	def split(nodeSets: Set[Node]*) = {
-		if(nodeSets.isEmpty) throw new RuntimeException("cannot split into 0 networks")
-		_nodes.clear
-		_nodes ++= nodeSets.head
-		val nets = this :: nodeSets.tail.map(set => new Network(set.toSeq: _*)).toList
-//		println(s"split into ${nets.map(net => s"${net.uuid}(${net.nodes.map(_.uuid).mkString(", ")})").mkString(", ")}")
-		nets
-	}
 }
 
 object Network {
@@ -146,5 +37,147 @@ object Network {
 				Some(net)
 			}
 		}).filter(_.nonEmpty)
+	}
+
+	// if a.uuid == b.uuid then everything is broken
+	def unifyNodePair(a: Node, b: Node) = if(a.uuid.toString > b.uuid.toString) (a, b) else (b, a)
+
+	def connection(a: Node, b: Node, connected: Boolean) {
+		if(connected) {
+			if(a._network != b._network || a._network == null) {
+				if(a._network != null) splitNets += a._network
+				splitNodes += a
+				if(b._network != null) splitNets += b._network
+				splitNodes += b
+			}
+		} else {
+			if(a._network == b._network || a._network == null || b._network == null) {
+				if(a._network != null) splitNets += a._network
+				splitNodes += a
+				splitNodes += b
+			}
+		}
+		directConnects.addBinding(a, (Node.RelSelector.Specific(Set(b)), connected))
+		queueTick
+	}
+
+	def remove(node: Node) {
+		directConnects.addBinding(node, (Node.RelSelector.Direct, false))
+		netChanges(node) = () => Network.Change.Leave(node._network)
+		indirectConnects.addBinding(node, (Node.RelSelector.Network, false))
+		queueTick
+	}
+
+	val directConnects = new mutable.HashMap[Node, mutable.Set[(Node.RelSelector, Boolean)]] with mutable.MultiMap[Node, (Node.RelSelector, Boolean)]
+	val splitNets = mutable.Set.empty[Network]
+	val splitNodes = mutable.Set.empty[Node]
+	val netChanges = mutable.Map.empty[Node, () => Network.Change]
+	val indirectConnects = new mutable.HashMap[Node, mutable.Set[(Node.RelSelector, Boolean)]] with mutable.MultiMap[Node, (Node.RelSelector, Boolean)]
+	val tickRun = mutable.Queue.empty[() => Unit]
+	var tickQueued = false
+
+	def runTick {
+		val _directConnects = directConnects.flatMap { case (nodeA, ops) =>
+				ops.flatMap { case (sel, connected) =>
+						sel.nodes(nodeA).map { nodeB =>
+							((nodeA, nodeB), connected)
+						}
+				}
+		}
+		for(((nodeA, nodeB), connected) <- _directConnects) {
+			nodeA._connection(nodeB, connected)
+			nodeB._connection(nodeA, connected)
+		}
+		directConnects.clear
+		;{
+			val nodeSets = findNetworks(splitNodes.toSeq: _*)
+			val networks = splitNets.toSeq.take(Math.min(splitNets.size, nodeSets.size)) ++ List.fill[Network](Math.max(nodeSets.size - splitNets.size, 0)) { new Network() }
+			for {
+				((nodesA, netA), i) <- nodeSets.view.zip(networks).zipWithIndex
+				nodeA <- nodesA
+			} {
+				netChanges(nodeA) = () => Network.Change(netA, nodeA._network)
+				indirectConnects.addBinding(nodeA, (Node.RelSelector.Specific(nodesA), true))
+				for(nodesB <- nodeSets.view.drop(i + 1)) {
+					indirectConnects.addBinding(nodeA, (Node.RelSelector.Specific(nodesB), false))
+				}
+			}
+		}
+		splitNets.clear
+		splitNodes.clear
+		for((node, chg) <- netChanges) {
+			val _chg = chg()
+			for(net <- _chg.oldN) {
+				net._nodes -= node
+				for((_, bus) <- net._buses) {
+					bus.onNodeChangeNet(node, _chg)
+				}
+			}
+			for(net <- _chg.newN) {
+				net._nodes += node
+				for((_, bus) <- net._buses) {
+					bus.onNodeChangeNet(node, _chg)
+				}
+			}
+			node._network = _chg.newN.getOrElse(null)
+			node.onChangeNet(_chg)
+		}
+		netChanges.clear
+		val _indirectConnects = indirectConnects.flatMap { case (nodeA, ops) =>
+			ops.flatMap { case (sel, connected) =>
+				sel.nodes(nodeA).map { nodeB =>
+					((nodeA, nodeB), connected)
+				}
+			}
+		}
+		for(((nodeA, nodeB), connected) <- _indirectConnects) {
+			nodeA.onConnectionChange(nodeB, connected)
+			nodeB.onConnectionChange(nodeA, connected)
+		}
+		indirectConnects.clear
+		while(tickRun.nonEmpty) {
+			tickRun.dequeue().apply()
+		}
+		tickQueued = false
+	}
+
+	def queueTick {
+		if(!Side.effective.isServer) {
+			CPupComputers.logger.warn("Queuing network tick from non-server thread", new Exception())
+		}
+
+		if(tickQueued) return
+		tickQueued = true
+
+		TickUtil.register(TickEvent.Type.SERVER, TickEvent.Phase.END, Side.SERVER, () => runTick)
+	}
+
+	sealed trait Change {
+		def newN: Option[Network]
+		def oldN: Option[Network]
+	}
+	object Change {
+		def apply(newN: Network, oldN: Network) = (newN, oldN) match {
+			case (null, null) => throw new RuntimeException("switching from null to null")
+			case (newN, null) => Join(newN)
+			case (null, oldN) => Leave(oldN)
+			case (newN, oldN) => Switch(newN, oldN)
+		}
+		case class Join(net: Network) extends Change {
+			assert(net != null)
+			override def newN = Some(net)
+			override def oldN = None
+		}
+		case class Leave(net: Network) extends Change {
+			assert(net != null)
+			override def newN = None
+			override def oldN = Some(net)
+		}
+		case class Switch(_newN: Network, old: Network) extends Change {
+			assert(_newN != null)
+			assert(old != null)
+			override def newN = Some(_newN)
+			override def oldN = Some(old)
+		}
 	}
 }

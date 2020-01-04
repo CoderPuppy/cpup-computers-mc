@@ -1,5 +1,6 @@
 package cpup.mc.computers.content.network.impl.component
 
+import cpup.mc.computers.content.network.impl.Network.Change
 import cpup.mc.computers.content.network.impl.{Network, Node}
 
 trait ComponentProviderNode extends Node {
@@ -7,16 +8,11 @@ trait ComponentProviderNode extends Node {
 
 	protected[component] var _components = List[Component]()
 
-	override def onJoin(net: Network) {
-		super.onJoin(net)
+	override def onChangeNet(chg: Change) {
+		super.onChangeNet(chg)
 		val _node = this
 		_components = components.toList
-		for(comp <- _components) net.bus[ComponentBus].add(comp)
-	}
-
-	override def onLeave(net: Network) {
-		super.onLeave(net)
-		for(comp <- _components) net.bus[ComponentBus].rm(comp)
-		_components = List[Component]()
+		for(net <- chg.oldN; comp <- _components) net.bus[ComponentBus].add(comp)
+		for(net <- chg.newN; comp <- _components) net.bus[ComponentBus].add(comp)
 	}
 }

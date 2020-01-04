@@ -6,10 +6,10 @@ import scala.collection.mutable
 
 import cpup.mc.computers.CPupComputers
 import cpup.mc.computers.content.network.impl.component.{ComponentAnnotation => ComponentA, ComponentSensitiveNode, ComponentBus, Component, ComponentProviderNode}
-import cpup.mc.computers.content.network.impl.{Node, NodeHolder}
+import cpup.mc.computers.content.network.impl.{Network, Node, NodeHolder}
 import cpup.mc.computers.content.network.{NodeMessage, impl}
 import cpup.mc.lib.network.{CPupMessage, CPupNetwork}
-import cpup.mc.lib.util.Side
+import cpup.mc.lib.util.{TickUtil, Side}
 import io.netty.buffer.{ByteBufInputStream, ByteBufOutputStream, Unpooled}
 import net.minecraft.entity.player.EntityPlayer
 import net.minecraft.network.PacketBuffer

@@ -61,10 +61,11 @@ object Buffer {
 		val width = Math.min(Math.min(_width, dest._1 - dx), from._1 - x)
 		val height = Math.min(Math.min(_height, dest._2 - dy), from._2 - y)
 		for(_y <- 0 until height) {
+			val idx = fgIndex(from._1)(x, y + _y) + width
 			from._3.getBytes(fgIndex(from._1)(x, y + _y), dest._3, fgIndex(dest._1)(dx, dy + _y), width)
 			from._3.getBytes(bgIndex(from._1)(x, y + _y), dest._3, bgIndex(dest._1)(dx, dy + _y), width)
 			for(_x <- 0 until width) {
-				from._4(charIndex(from._1)(dx + _x, dy + _y)) = from._4(charIndex(from._1)(x + _x, y + _y))
+				dest._4(charIndex(dest._1)(dx + _x, dy + _y)) = from._4(charIndex(from._1)(x + _x, y + _y))
 			}
 		}
 		(x, y, width, height, dx, dy)
